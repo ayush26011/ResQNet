@@ -54,3 +54,9 @@ ios/Flutter/app.zip
 ios/Flutter/flutter_export_environment.sh
 ios/ServiceDefinitions.json
 ios/Runner/GeneratedPluginRegistrant.*
+local_models/
+*.gguf
+build/
+local_models/
+*.gguf
+build/

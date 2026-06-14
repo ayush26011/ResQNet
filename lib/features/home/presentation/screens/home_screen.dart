@@ -9,6 +9,9 @@ import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/animated_button.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../shared/providers/app_providers.dart';
+import '../../../ai_assistant/presentation/screens/ai_assistant_screen.dart';
+import '../../../ai_assistant/domain/ai_assistant_provider.dart';
+import '../../../ai_assistant/data/local_model_manager.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -37,6 +40,8 @@ class HomeScreen extends ConsumerWidget {
                 _StatusWidget(isDark: isDark, status: userStatus),
                 const SizedBox(height: AppConstants.spaceXL),
                 _QuickActionsGrid(isDark: isDark),
+                const SizedBox(height: AppConstants.spaceXL),
+                _AiAssistantCard(isDark: isDark),
                 const SizedBox(height: AppConstants.spaceXL),
                 SectionHeader(
                   title: 'Nearby Help',
@@ -671,5 +676,113 @@ class _EmergencyTipCard extends StatelessWidget {
         .animate()
         .fadeIn(delay: 800.ms, duration: 450.ms)
         .slideY(begin: 0.1, end: 0);
+  }
+}
+
+class _AiAssistantCard extends ConsumerWidget {
+  final bool isDark;
+  const _AiAssistantCard({required this.isDark});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(modelStatusProvider);
+    
+    String badgeText = 'Configure';
+    Color badgeColor = AppColors.warningAmber;
+    if (status == ModelStatus.ready) {
+      badgeText = 'Ready';
+      badgeColor = AppColors.successGreen;
+    } else if (status == ModelStatus.loading) {
+      badgeText = 'Loading';
+      badgeColor = AppColors.warningAmber;
+    } else if (status == ModelStatus.importing) {
+      badgeText = 'Importing';
+      badgeColor = AppColors.warningAmber;
+    } else if (status == ModelStatus.loadFailed) {
+      badgeText = 'Failed';
+      badgeColor = AppColors.emergencyRed;
+    } else if (status == ModelStatus.invalid) {
+      badgeText = 'Invalid';
+      badgeColor = AppColors.emergencyRed;
+    } else if (status == ModelStatus.missing) {
+      badgeText = 'Model Missing';
+      badgeColor = AppColors.emergencyRed;
+    }
+
+    return NeumorphicContainer(
+      borderRadius: AppConstants.radiusXL,
+      padding: const EdgeInsets.all(AppConstants.paddingXL),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const AiAssistantScreen(),
+          ),
+        );
+      },
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.powderBlue.withOpacity(isDark ? 0.2 : 0.8),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.psychology_rounded,
+              color: AppColors.deepBlue,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: AppConstants.spaceMD),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Offline AI Assistant',
+                      style: AppTextStyles.headlineSmall.copyWith(
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: badgeColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        badgeText,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: badgeColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Ask emergency questions completely offline',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 14,
+            color: AppColors.deepBlue,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 500.ms, duration: 450.ms).slideY(begin: 0.1, end: 0);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -9,6 +10,8 @@ import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../shared/widgets/animated_button.dart';
 import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/models/emergency_contact.dart';
+import '../../../ai_assistant/data/local_model_manager.dart';
+import '../../../ai_assistant/domain/ai_assistant_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -22,8 +25,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _locationOn = true;
   String _language = 'English';
   int _selectedLanguage = 0;
+  bool _isImporting = false;
+  String? _importingStatus;
 
   final _languages = ['English', 'हिंदी', 'தமிழ்', 'বাংলা', 'मराठी'];
+
+  Future<void> _pickAndImportModel(WidgetRef ref) async {
+    try {
+      setState(() {
+        _isImporting = true;
+        _importingStatus = 'Opening picker...';
+      });
+
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+      );
+
+      if (result == null || result.files.isEmpty || result.files.single.path == null) {
+        setState(() {
+          _isImporting = false;
+          _importingStatus = null;
+        });
+        return;
+      }
+
+      final sourcePath = result.files.single.path!;
+
+      setState(() {
+        _importingStatus = 'Copying model...';
+      });
+
+      final success = await LocalModelManager.instance.importModelFile(sourcePath);
+
+      // Trigger model reloading
+      await ref.read(modelStatusProvider.notifier).initModel();
+
+      if (mounted) {
+        setState(() {
+          _isImporting = false;
+          if (success) {
+            _importingStatus = 'Imported successfully!';
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Offline AI model imported and loaded successfully!'),
+                backgroundColor: AppColors.successGreen,
+              ),
+            );
+          } else {
+            final errMsg = LocalModelManager.instance.lastErrorMessage ?? 'Import failed';
+            _importingStatus = 'Failed to import';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed: $errMsg'),
+                backgroundColor: AppColors.emergencyRed,
+              ),
+            );
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isImporting = false;
+          _importingStatus = 'Import error';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: AppColors.emergencyRed,
+            ),
+          );
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +166,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ref.read(themeProvider.notifier).toggleTheme(),
                           activeColor: AppColors.deepMint,
                         ),
+                      ),
+                      AppDivider(margin: const EdgeInsets.symmetric(vertical: 4)),
+                      _SettingsTile(
+                        icon: Icons.psychology_rounded,
+                        iconColor: AppColors.deepMint,
+                        iconBg: AppColors.mintGreen,
+                        title: 'Import Offline AI Model',
+                        subtitle: _importingStatus ?? 'Select and load .gguf model file',
+                        isDark: isDark,
+                        onTap: _isImporting ? null : () => _pickAndImportModel(ref),
+                        trailing: _isImporting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.deepMint),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: AppColors.textTertiary,
+                              ),
                       ),
                     ],
                   ),

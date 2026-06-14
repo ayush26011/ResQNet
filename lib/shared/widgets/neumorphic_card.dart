@@ -101,11 +101,9 @@ class _NeumorphicContainerState extends State<NeumorphicContainer> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onTap?.call();
-      },
+      onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
       child: NeumorphicCard(
         borderRadius: widget.borderRadius,
         padding: widget.padding,
