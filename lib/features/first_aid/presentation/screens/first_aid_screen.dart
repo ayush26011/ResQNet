@@ -44,58 +44,47 @@ class _FirstAidScreenState extends ConsumerState<FirstAidScreen> {
                   ref.read(searchQueryProvider.notifier).state = q,
             ),
           ),
-          categoriesAsync.when(
-            data: (categories) => SliverMainAxisGroup(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.horizontalPadding,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      _FeaturedCard(isDark: isDark, categories: categories),
-                      const SizedBox(height: AppConstants.spaceXL),
-                      SectionHeader(
-                        title: 'Categories',
-                        subtitle: '${categories.length} topics available',
-                      ),
-                      const SizedBox(height: AppConstants.spaceMD),
-                    ]),
-                  ),
+          SliverMainAxisGroup(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.horizontalPadding,
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.horizontalPadding,
-                  ),
-                  sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.85,
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _FeaturedCard(isDark: isDark, categories: categoriesAsync),
+                    const SizedBox(height: AppConstants.spaceXL),
+                    SectionHeader(
+                      title: 'Categories',
+                      subtitle: '${categoriesAsync.length} topics available',
                     ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _CategoryCard(
-                        category: categories[index],
-                        isDark: isDark,
-                        delay: Duration(milliseconds: 300 + index * 80),
-                        onTap: () => _openArticle(context, categories[index]),
-                      ),
-                      childCount: categories.length,
-                    ),
-                  ),
+                    const SizedBox(height: AppConstants.spaceMD),
+                  ]),
                 ),
-              ],
-            ),
-            loading: () => const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(40.0),
-                child: Center(child: CircularProgressIndicator()),
               ),
-            ),
-            error: (err, stack) => SliverToBoxAdapter(
-              child: Center(child: Text('Error: $err')),
-            ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.horizontalPadding,
+                ),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.85,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _CategoryCard(
+                      category: categoriesAsync[index],
+                      isDark: isDark,
+                      delay: Duration(milliseconds: 300 + index * 80),
+                      onTap: () => _openArticle(context, categoriesAsync[index]),
+                    ),
+                    childCount: categoriesAsync.length,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
