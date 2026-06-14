@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
-import '../../../core/constants/app_constants.dart';
-import '../../../core/widgets/shared_widgets.dart';
-import '../data/first_aid_data.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_text_styles.dart';
+import '../../../../../core/constants/app_constants.dart';
+import '../../../../../shared/widgets/shared_widgets.dart';
+import '../../data/first_aid_data.dart';
 
 class ArticleScreen extends StatelessWidget {
   final FirstAidArticle article;

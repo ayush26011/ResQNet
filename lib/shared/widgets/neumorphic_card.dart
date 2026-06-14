@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
 
 class NeumorphicCard extends StatelessWidget {
   final Widget child;
@@ -22,7 +23,6 @@ class NeumorphicCard extends StatelessWidget {
     this.onTap,
     this.elevation = 8,
   });
-
 
   @override
   Widget build(BuildContext context) {

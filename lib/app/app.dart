@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/widgets/bottom_nav.dart';
-import 'features/home/home_screen.dart';
-import 'features/sos/sos_screen.dart';
-import 'features/first_aid/first_aid_screen.dart';
-import 'features/maps/maps_screen.dart';
-import 'features/profile/profile_screen.dart';
-import 'providers/app_providers.dart';
-import 'core/theme/app_theme.dart';
+import '../shared/widgets/bottom_nav.dart';
+import '../features/home/presentation/screens/home_screen.dart';
+import '../features/sos/presentation/screens/sos_screen.dart';
+import '../features/first_aid/presentation/screens/first_aid_screen.dart';
+import '../features/maps/presentation/screens/maps_screen.dart';
+import '../features/profile/presentation/screens/profile_screen.dart';
+import '../shared/providers/app_providers.dart';
+import '../core/theme/app_theme.dart';
 
 class ResQNetApp extends ConsumerWidget {
   const ResQNetApp({super.key});

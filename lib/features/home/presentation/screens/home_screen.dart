@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_text_styles.dart';
-import '../../core/constants/app_constants.dart';
-import '../../core/widgets/neumorphic_card.dart';
-import '../../core/widgets/glass_card.dart';
-import '../../core/widgets/animated_button.dart';
-import '../../core/widgets/shared_widgets.dart';
-import '../../providers/app_providers.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../shared/widgets/neumorphic_card.dart';
+import '../../../../shared/widgets/glass_card.dart';
+import '../../../../shared/widgets/animated_button.dart';
+import '../../../../shared/widgets/shared_widgets.dart';
+import '../../../../shared/providers/app_providers.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});

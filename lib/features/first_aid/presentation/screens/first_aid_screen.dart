@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_text_styles.dart';
-import '../../core/constants/app_constants.dart';
-import '../../core/widgets/neumorphic_card.dart';
-import '../../core/widgets/shared_widgets.dart';
-import 'providers/first_aid_provider.dart';
-import 'data/first_aid_data.dart';
-import 'widgets/article_screen.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../shared/widgets/neumorphic_card.dart';
+import '../../../../shared/widgets/shared_widgets.dart';
+import '../../domain/first_aid_provider.dart';
+import '../../data/first_aid_data.dart';
+import '../widgets/article_screen.dart';
 
 class FirstAidScreen extends ConsumerStatefulWidget {
   const FirstAidScreen({super.key});
