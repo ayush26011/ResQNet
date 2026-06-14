@@ -8,6 +8,7 @@ import '../../../../shared/widgets/neumorphic_card.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../../../../shared/widgets/animated_button.dart';
 import '../../../../shared/providers/app_providers.dart';
+import '../../../../shared/models/emergency_contact.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -481,41 +482,33 @@ class _LanguagePicker extends StatelessWidget {
   }
 }
 
-class _EmergencyContactManager extends StatefulWidget {
+class _EmergencyContactManager extends ConsumerWidget {
   final bool isDark;
   const _EmergencyContactManager({required this.isDark});
 
   @override
-  State<_EmergencyContactManager> createState() =>
-      _EmergencyContactManagerState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contacts = ref.watch(emergencyContactsProvider);
 
-class _EmergencyContactManagerState extends State<_EmergencyContactManager> {
-  final _contacts = [
-    {'name': 'Mom', 'phone': '+91 98765 43210', 'relation': 'Family'},
-    {'name': 'Dad', 'phone': '+91 91234 56789', 'relation': 'Family'},
-    {'name': 'Dr. Sharma', 'phone': '+91 88888 12345', 'relation': 'Doctor'},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
     return NeumorphicCard(
       padding: const EdgeInsets.all(AppConstants.paddingMD),
       child: Column(
         children: [
-          ..._contacts.map(
+          ...contacts.map(
             (c) => _ContactRow(
               contact: c,
-              isDark: widget.isDark,
-              onDelete: () => setState(
-                () => _contacts.remove(c),
-              ),
+              isDark: isDark,
+              onDelete: () {
+                if (c.id != null) {
+                  ref.read(emergencyContactsProvider.notifier).removeContact(c.id!);
+                }
+              },
             ),
           ),
-          if (_contacts.isNotEmpty)
+          if (contacts.isNotEmpty)
             AppDivider(margin: const EdgeInsets.symmetric(vertical: 8)),
           GestureDetector(
-            onTap: () => _addContact(context),
+            onTap: () => _addContact(context, ref),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Row(
@@ -542,26 +535,117 @@ class _EmergencyContactManagerState extends State<_EmergencyContactManager> {
     );
   }
 
-  void _addContact(BuildContext context) {
+  void _addContact(BuildContext context, WidgetRef ref) {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    String selectedRelation = 'Family';
+    final relations = ['Family', 'Friend', 'Doctor', 'Other'];
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Add Contact'),
-        content: const Text('This feature connects to your phone contacts.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Text('Add Contact'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Contact Name',
+                        hintText: 'Enter name',
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: 'Phone Number',
+                        hintText: 'Enter phone number',
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedRelation,
+                      decoration: InputDecoration(
+                        labelText: 'Relationship',
+                        prefixIcon: const Icon(Icons.people_outline_rounded),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      items: relations.map((r) {
+                        return DropdownMenuItem(
+                          value: r,
+                          child: Text(r),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            selectedRelation = val;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.deepMint,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    final phone = phoneController.text.trim();
+                    if (name.isNotEmpty && phone.isNotEmpty) {
+                      ref.read(emergencyContactsProvider.notifier).addContact(
+                            EmergencyContact(
+                              name: name,
+                              phone: phone,
+                              relation: selectedRelation,
+                              priority: 1,
+                              createdAt: DateTime.now(),
+                            ),
+                          );
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
 
 class _ContactRow extends StatelessWidget {
-  final Map<String, String> contact;
+  final EmergencyContact contact;
   final bool isDark;
   final VoidCallback onDelete;
   const _ContactRow({
@@ -585,7 +669,7 @@ class _ContactRow extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                contact['name']![0],
+                contact.name.isNotEmpty ? contact.name[0] : 'C',
                 style: TextStyle(
                   color: AppColors.deepMint,
                   fontWeight: FontWeight.w700,
@@ -600,7 +684,7 @@ class _ContactRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  contact['name']!,
+                  contact.name,
                   style: AppTextStyles.headlineSmall.copyWith(
                     fontSize: 13,
                     color: isDark
@@ -608,11 +692,11 @@ class _ContactRow extends StatelessWidget {
                         : AppColors.textPrimary,
                   ),
                 ),
-                Text(contact['phone']!, style: AppTextStyles.bodySmall),
+                Text(contact.phone, style: AppTextStyles.bodySmall),
               ],
             ),
           ),
-          StatusBadge(label: contact['relation']!, color: AppColors.deepMint),
+          StatusBadge(label: contact.relation, color: AppColors.deepMint),
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onDelete,

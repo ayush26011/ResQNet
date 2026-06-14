@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/emergency_contact.dart';
+import '../../services/database_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('SharedPreferences not initialized');
@@ -38,3 +40,37 @@ final currentTabProvider = StateProvider<int>((ref) => 0);
 
 final userNameProvider = StateProvider<String>((ref) => 'Ayush');
 final userStatusProvider = StateProvider<String>((ref) => 'Safe');
+
+class EmergencyContactsNotifier extends StateNotifier<List<EmergencyContact>> {
+  EmergencyContactsNotifier() : super([]) {
+    loadContacts();
+  }
+
+  Future<void> loadContacts() async {
+    try {
+      final contacts = await DatabaseService.instance.getContacts();
+      state = contacts;
+    } catch (_) {
+      state = [];
+    }
+  }
+
+  Future<void> addContact(EmergencyContact contact) async {
+    try {
+      final newContact = await DatabaseService.instance.insertContact(contact);
+      state = [...state, newContact];
+    } catch (_) {}
+  }
+
+  Future<void> removeContact(int id) async {
+    try {
+      await DatabaseService.instance.deleteContact(id);
+      state = state.where((c) => c.id != id).toList();
+    } catch (_) {}
+  }
+}
+
+final emergencyContactsProvider =
+    StateNotifierProvider<EmergencyContactsNotifier, List<EmergencyContact>>((ref) {
+  return EmergencyContactsNotifier();
+});

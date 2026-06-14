@@ -4,9 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app.dart';
 import 'shared/providers/app_providers.dart';
+import 'services/database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Database Service
+  await DatabaseService.instance.init();
 
   // Set system overlay style globally
   SystemChrome.setSystemUIOverlayStyle(

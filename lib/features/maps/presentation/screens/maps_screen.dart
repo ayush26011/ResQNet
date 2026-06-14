@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -7,6 +9,7 @@ import '../../../../shared/widgets/neumorphic_card.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/animated_button.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
+import '../../../../services/location_service.dart';
 
 class MapsScreen extends StatefulWidget {
   const MapsScreen({super.key});
@@ -22,6 +25,8 @@ class _MapsScreenState extends State<MapsScreen> with SingleTickerProviderStateM
   late Animation<double> _panelAnim;
 
   final _filters = ['All', 'Hospitals', 'Shelters', 'Police', 'Fire'];
+  LatLng? _currentLocation;
+  final MapController _mapController = MapController();
 
   @override
   void initState() {
@@ -32,11 +37,40 @@ class _MapsScreenState extends State<MapsScreen> with SingleTickerProviderStateM
       value: 1.0,
     );
     _panelAnim = CurvedAnimation(parent: _panelController, curve: Curves.easeInOut);
+    _initLocation();
+  }
+
+  void _initLocation() async {
+    final service = LocationService();
+    await service.requestPermission();
+    final pos = await service.getCurrentPosition() ?? await service.getLastKnownPosition();
+    if (pos != null) {
+      if (mounted) {
+        setState(() {
+          _currentLocation = LatLng(pos.latitude, pos.longitude);
+        });
+      }
+    }
+  }
+
+  void _moveToCurrentLocation() async {
+    final service = LocationService();
+    final pos = await service.getCurrentPosition() ?? await service.getLastKnownPosition();
+    if (pos != null) {
+      final latLng = LatLng(pos.latitude, pos.longitude);
+      if (mounted) {
+        setState(() {
+          _currentLocation = latLng;
+        });
+      }
+      _mapController.move(latLng, 14.0);
+    }
   }
 
   @override
   void dispose() {
     _panelController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -82,7 +116,7 @@ class _MapsScreenState extends State<MapsScreen> with SingleTickerProviderStateM
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                    child: _MapPlaceholder(isDark: isDark),
+                    child: _buildRealMap(isDark),
                   ),
                 ),
               ),
@@ -106,7 +140,7 @@ class _MapsScreenState extends State<MapsScreen> with SingleTickerProviderStateM
               children: [
                 AnimatedIconButton(
                   icon: Icons.my_location_rounded,
-                  onTap: () {},
+                  onTap: _moveToCurrentLocation,
                   backgroundColor: AppColors.deepMint,
                   iconColor: Colors.white,
                   tooltip: 'My Location',
@@ -114,13 +148,23 @@ class _MapsScreenState extends State<MapsScreen> with SingleTickerProviderStateM
                 const SizedBox(height: 12),
                 AnimatedIconButton(
                   icon: Icons.zoom_in_rounded,
-                  onTap: () {},
+                  onTap: () {
+                    _mapController.move(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom + 1.0,
+                    );
+                  },
                   tooltip: 'Zoom In',
                 ),
                 const SizedBox(height: 10),
                 AnimatedIconButton(
                   icon: Icons.zoom_out_rounded,
-                  onTap: () {},
+                  onTap: () {
+                    _mapController.move(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom - 1.0,
+                    );
+                  },
                   tooltip: 'Zoom Out',
                 ),
                 const SizedBox(height: 12),
@@ -194,98 +238,54 @@ class _MapsScreenState extends State<MapsScreen> with SingleTickerProviderStateM
       ),
     );
   }
-}
 
-class _MapsHeader extends StatelessWidget {
-  final bool isDark;
-  const _MapsHeader({required this.isDark});
+  Widget _buildRealMap(bool isDark) {
+    final center = _currentLocation ?? const LatLng(LocationService.fallbackLatitude, LocationService.fallbackLongitude);
+    final markers = _buildResourceMarkers(center);
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: isDark ? AppColors.darkBackground : AppColors.warmCream,
-      padding: EdgeInsets.fromLTRB(
-        AppConstants.horizontalPadding,
-        MediaQuery.of(context).padding.top + 16,
-        AppConstants.horizontalPadding,
-        12,
-      ),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Offline Maps',
-                style: AppTextStyles.displaySmall.copyWith(
-                  color: isDark
-                      ? AppColors.darkTextPrimary
-                      : AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                'Safe zones & emergency points',
-                style: AppTextStyles.bodySmall,
-              ),
-            ],
-          ),
-          const Spacer(),
-          AnimatedIconButton(
-            icon: Icons.download_rounded,
-            onTap: () {},
-            tooltip: 'Download offline',
-          ),
-        ],
-      ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2),
-    );
-  }
-}
-
-class _MapPlaceholder extends StatelessWidget {
-  final bool isDark;
-  const _MapPlaceholder({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Grid lines simulating map
-        CustomPaint(
-          painter: _MapGridPainter(isDark: isDark),
-          child: Container(),
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: 13.0,
+            minZoom: 3.0,
+            maxZoom: 18.0,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.resqnet',
+              // TODO (Phase 2): Plug in offline tile provider for local caching.
+              // Example: Use `flutter_map_cache` or custom FsTileProvider.
+            ),
+            MarkerLayer(
+              markers: [
+                if (_currentLocation != null)
+                  Marker(
+                    point: _currentLocation!,
+                    width: 44,
+                    height: 44,
+                    child: _buildCurrentLocationMarker(),
+                  ),
+                ...markers,
+              ],
+            ),
+          ],
         ),
-        // Location markers
-        ..._buildMarkers(isDark),
-        // Center crosshair
+        // Center crosshair overlay matching layout placeholder
         Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.deepMint,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.deepMint.withOpacity(0.4),
-                      blurRadius: 12,
-                      spreadRadius: 4,
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 2,
-                height: 20,
-                color: AppColors.deepMint.withOpacity(0.5),
-              ),
-            ],
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              color: AppColors.deepMint,
+              shape: BoxShape.circle,
+            ),
           ),
         ),
-        // Overlay text
+        // Offline Mode Label
         Positioned(
           top: 20,
           left: 20,
@@ -314,112 +314,120 @@ class _MapPlaceholder extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildMarkers(bool isDark) {
-    final markers = [
-      _MapMarker(left: 0.25, top: 0.35, icon: Icons.local_hospital_rounded, color: AppColors.emergencyRed, label: 'Hospital'),
-      _MapMarker(left: 0.65, top: 0.25, icon: Icons.local_fire_department_rounded, color: AppColors.warningAmber, label: 'Fire'),
-      _MapMarker(left: 0.45, top: 0.65, icon: Icons.shield_rounded, color: AppColors.deepBlue, label: 'Shelter'),
-      _MapMarker(left: 0.75, top: 0.55, icon: Icons.local_police_rounded, color: AppColors.deepMint, label: 'Police'),
-    ];
-
-    return markers.map((m) => Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) => Positioned(
-          left: constraints.maxWidth * m.left,
-          top: constraints.maxHeight * m.top,
-          child: _buildMarkerWidget(m, isDark),
-        ),
+  Widget _buildCurrentLocationMarker() {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.deepMint.withOpacity(0.2),
       ),
-    )).toList();
-  }
-
-  Widget _buildMarkerWidget(_MapMarker m, bool isDark) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
+      child: Center(
+        child: Container(
+          width: 16,
+          height: 16,
           decoration: BoxDecoration(
-            color: m.color,
+            color: AppColors.deepMint,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
-                color: m.color.withOpacity(0.4),
-                blurRadius: 10,
+                color: AppColors.deepMint.withOpacity(0.4),
+                blurRadius: 8,
                 spreadRadius: 2,
               ),
             ],
           ),
-          child: Icon(m.icon, color: Colors.white, size: 18),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMarkerWidget({required IconData icon, required Color color, required String label}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 6,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Icon(icon, color: Colors.white, size: 16),
         ),
         Container(
-          margin: const EdgeInsets.only(top: 4),
+          margin: const EdgeInsets.only(top: 2),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkCard : AppColors.white,
             borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+              ),
+            ],
           ),
           child: Text(
-            m.label,
-            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+            label,
+            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w600),
           ),
         ),
       ],
     );
   }
+
+  List<Marker> _buildResourceMarkers(LatLng center) {
+    final allMarkers = [
+      _MapMarkerOffset(latOffset: 0.005, lonOffset: -0.005, icon: Icons.local_hospital_rounded, color: AppColors.emergencyRed, label: 'City Hospital', category: 1),
+      _MapMarkerOffset(latOffset: 0.003, lonOffset: 0.006, icon: Icons.local_fire_department_rounded, color: AppColors.warningAmber, label: 'Fire Station', category: 4),
+      _MapMarkerOffset(latOffset: -0.006, lonOffset: -0.002, icon: Icons.home_rounded, color: AppColors.deepBlue, label: 'Safe Shelter', category: 2),
+      _MapMarkerOffset(latOffset: -0.003, lonOffset: 0.004, icon: Icons.local_police_rounded, color: AppColors.deepMint, label: 'Police HQ', category: 3),
+    ];
+
+    final filtered = allMarkers.where((m) {
+      if (_selectedFilter == 0) return true;
+      return m.category == _selectedFilter;
+    });
+
+    return filtered.map((m) {
+      return Marker(
+        point: LatLng(center.latitude + m.latOffset, center.longitude + m.lonOffset),
+        width: 60,
+        height: 60,
+        child: _buildMarkerWidget(
+          icon: m.icon,
+          color: m.color,
+          label: m.label,
+        ),
+      );
+    }).toList();
+  }
 }
 
-class _MapMarker {
-  final double left;
-  final double top;
+class _MapMarkerOffset {
+  final double latOffset;
+  final double lonOffset;
   final IconData icon;
   final Color color;
   final String label;
-  const _MapMarker({
-    required this.left,
-    required this.top,
+  final int category;
+  const _MapMarkerOffset({
+    required this.latOffset,
+    required this.lonOffset,
     required this.icon,
     required this.color,
     required this.label,
+    required this.category,
   });
-}
-
-class _MapGridPainter extends CustomPainter {
-  final bool isDark;
-  const _MapGridPainter({required this.isDark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = (isDark ? Colors.white : AppColors.deepBlue).withOpacity(0.06)
-      ..strokeWidth = 1;
-
-    const step = 40.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-
-    // Road-like lines
-    final roadPaint = Paint()
-      ..color = (isDark ? Colors.white : AppColors.deepBlue).withOpacity(0.12)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(
-        Offset(0, size.height * 0.4), Offset(size.width, size.height * 0.4), roadPaint);
-    canvas.drawLine(
-        Offset(size.width * 0.5, 0), Offset(size.width * 0.5, size.height), roadPaint);
-    canvas.drawLine(
-        Offset(0, size.height * 0.7), Offset(size.width * 0.7, size.height), roadPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ShelterPanel extends StatelessWidget {
@@ -540,3 +548,49 @@ class _ShelterCard extends StatelessWidget {
     );
   }
 }
+
+class _MapsHeader extends StatelessWidget {
+  final bool isDark;
+  const _MapsHeader({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: isDark ? AppColors.darkBackground : AppColors.warmCream,
+      padding: EdgeInsets.fromLTRB(
+        AppConstants.horizontalPadding,
+        MediaQuery.of(context).padding.top + 16,
+        AppConstants.horizontalPadding,
+        12,
+      ),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Offline Maps',
+                style: AppTextStyles.displaySmall.copyWith(
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                'Safe zones & emergency points',
+                style: AppTextStyles.bodySmall,
+              ),
+            ],
+          ),
+          const Spacer(),
+          AnimatedIconButton(
+            icon: Icons.download_rounded,
+            onTap: () {},
+            tooltip: 'Download offline',
+          ),
+        ],
+      ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2),
+    );
+  }
+}
+

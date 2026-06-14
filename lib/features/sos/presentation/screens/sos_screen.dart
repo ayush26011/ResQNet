@@ -11,6 +11,9 @@ import '../../../../shared/widgets/neumorphic_card.dart';
 import '../../../../shared/widgets/animated_button.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../../domain/sos_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../shared/providers/app_providers.dart';
+import '../../../../shared/models/emergency_contact.dart';
 
 class SOSScreen extends ConsumerStatefulWidget {
   const SOSScreen({super.key});
@@ -116,6 +119,13 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                   onCancelSOS: _cancelSOS,
                 ),
                 const SizedBox(height: AppConstants.spaceXL),
+                if (sos.isActive && sos.generatedMessage != null) ...[
+                  _SOSMessageCard(
+                    message: sos.generatedMessage!,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: AppConstants.spaceXL),
+                ],
                 if (!sos.isActive) ...[
                   _EmergencyTypeSelector(isDark: isDark),
                   const SizedBox(height: AppConstants.spaceXL),
@@ -640,17 +650,13 @@ class _LocationCard extends StatelessWidget {
   }
 }
 
-class _EmergencyContactsCard extends StatelessWidget {
+class _EmergencyContactsCard extends ConsumerWidget {
   final bool isDark;
   const _EmergencyContactsCard({required this.isDark});
 
   @override
-  Widget build(BuildContext context) {
-    final contacts = [
-      _Contact('Mom', '📱', '+91 98765 43210', AppColors.deepMint),
-      _Contact('Dad', '📱', '+91 91234 56789', AppColors.deepBlue),
-      _Contact('Dr. Sharma', '🏥', '+91 88888 12345', AppColors.emergencyRed),
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contacts = ref.watch(emergencyContactsProvider);
 
     return NeumorphicCard(
       padding: const EdgeInsets.all(AppConstants.paddingXL),
@@ -676,25 +682,57 @@ class _EmergencyContactsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppConstants.spaceMD),
-          ...contacts.map((c) => _ContactTile(contact: c, isDark: isDark)),
+          if (contacts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'No emergency contacts set. Please add contacts in the Profile tab.',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            ...contacts.map((c) => _ContactTile(contact: c, isDark: isDark)),
         ],
       ),
     );
   }
 }
 
-class _Contact {
-  final String name;
-  final String emoji;
-  final String phone;
-  final Color color;
-  const _Contact(this.name, this.emoji, this.phone, this.color);
-}
-
 class _ContactTile extends StatelessWidget {
-  final _Contact contact;
+  final EmergencyContact contact;
   final bool isDark;
   const _ContactTile({required this.contact, required this.isDark});
+
+  String get emoji {
+    switch (contact.relation) {
+      case 'Family':
+        return '👨‍👩‍👧‍' ;
+      case 'Doctor':
+        return '🏥';
+      case 'Friend':
+        return '🤝';
+      default:
+        return '📱';
+    }
+  }
+
+  Color get color {
+    switch (contact.relation) {
+      case 'Family':
+        return AppColors.deepMint;
+      case 'Doctor':
+        return AppColors.emergencyRed;
+      case 'Friend':
+        return AppColors.deepBlue;
+      default:
+        return AppColors.deepAqua;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -706,11 +744,11 @@ class _ContactTile extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: contact.color.withOpacity(0.12),
+              color: color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
-              child: Text(contact.emoji, style: const TextStyle(fontSize: 20)),
+              child: Text(emoji, style: const TextStyle(fontSize: 20)),
             ),
           ),
           const SizedBox(width: 12),
@@ -733,11 +771,94 @@ class _ContactTile extends StatelessWidget {
           ),
           AnimatedIconButton(
             icon: Icons.call_rounded,
-            onTap: () {},
-            backgroundColor: contact.color.withOpacity(0.12),
-            iconColor: contact.color,
+            onTap: () async {
+              final url = Uri.parse('tel:${contact.phone}');
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url);
+              }
+            },
+            backgroundColor: color.withOpacity(0.12),
+            iconColor: color,
             size: 38,
             iconSize: 18,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SOSMessageCard extends StatelessWidget {
+  final String message;
+  final bool isDark;
+
+  const _SOSMessageCard({
+    required this.message,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return NeumorphicCard(
+      padding: const EdgeInsets.all(AppConstants.paddingXL),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '🚨 Generated SOS Message',
+                style: AppTextStyles.headlineMedium.copyWith(
+                  color: AppColors.emergencyRed,
+                ),
+              ),
+              const Spacer(),
+              const PulsingDot(color: AppColors.emergencyRed, size: 8),
+            ],
+          ),
+          const SizedBox(height: AppConstants.spaceMD),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkCardElevated : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.emergencyRed.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: SelectableText(
+              message,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AnimatedPrimaryButton(
+                  label: 'Copy Alert Message',
+                  icon: Icons.copy_rounded,
+                  backgroundColor: AppColors.deepMint,
+                  foregroundColor: Colors.white,
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: message));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('SOS Alert message copied to clipboard!'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
