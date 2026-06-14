@@ -29,7 +29,7 @@ class _FirstAidScreenState extends ConsumerState<FirstAidScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final categories = ref.watch(filteredCategoriesProvider);
+    final categoriesAsync = ref.watch(filteredCategoriesProvider);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.warmCream,
@@ -44,42 +44,57 @@ class _FirstAidScreenState extends ConsumerState<FirstAidScreen> {
                   ref.read(searchQueryProvider.notifier).state = q,
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.horizontalPadding,
-            ),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _FeaturedCard(isDark: isDark),
-                const SizedBox(height: AppConstants.spaceXL),
-                SectionHeader(
-                  title: 'Categories',
-                  subtitle: '${categories.length} topics available',
+          categoriesAsync.when(
+            data: (categories) => SliverMainAxisGroup(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.horizontalPadding,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _FeaturedCard(isDark: isDark, categories: categories),
+                      const SizedBox(height: AppConstants.spaceXL),
+                      SectionHeader(
+                        title: 'Categories',
+                        subtitle: '${categories.length} topics available',
+                      ),
+                      const SizedBox(height: AppConstants.spaceMD),
+                    ]),
+                  ),
                 ),
-                const SizedBox(height: AppConstants.spaceMD),
-              ]),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.horizontalPadding,
-            ),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: 14,
-                childAspectRatio: 0.85,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _CategoryCard(
-                  category: categories[index],
-                  isDark: isDark,
-                  delay: Duration(milliseconds: 300 + index * 80),
-                  onTap: () => _openArticle(context, categories[index]),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.horizontalPadding,
+                  ),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 0.85,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _CategoryCard(
+                        category: categories[index],
+                        isDark: isDark,
+                        delay: Duration(milliseconds: 300 + index * 80),
+                        onTap: () => _openArticle(context, categories[index]),
+                      ),
+                      childCount: categories.length,
+                    ),
+                  ),
                 ),
-                childCount: categories.length,
+              ],
+            ),
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: Center(child: CircularProgressIndicator()),
               ),
+            ),
+            error: (err, stack) => SliverToBoxAdapter(
+              child: Center(child: Text('Error: $err')),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -230,7 +245,8 @@ class _FirstAidHeader extends StatelessWidget {
 
 class _FeaturedCard extends StatelessWidget {
   final bool isDark;
-  const _FeaturedCard({required this.isDark});
+  final List<FirstAidCategory> categories;
+  const _FeaturedCard({required this.isDark, required this.categories});
 
   @override
   Widget build(BuildContext context) {
@@ -281,16 +297,21 @@ class _FeaturedCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: () {
-                    final cpr = firstAidCategories
-                        .firstWhere((c) => c.id == 'cpr');
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ArticleScreen(
-                          article: cpr.articles.first,
-                          categoryEmoji: cpr.emoji,
-                        ),
-                      ),
-                    );
+                    try {
+                      final cpr = categories.firstWhere((c) => c.id == 'cpr');
+                      if (cpr.articles.isNotEmpty) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ArticleScreen(
+                              article: cpr.articles.first,
+                              categoryEmoji: cpr.emoji,
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // Do nothing if not found
+                    }
                   },
                   child: Text(
                     'Learn CPR →',
