@@ -252,13 +252,16 @@ class _MapsScreenState extends State<MapsScreen> with SingleTickerProviderStateM
             initialZoom: 13.0,
             minZoom: 3.0,
             maxZoom: 18.0,
+            backgroundColor: isDark ? AppColors.darkBackground : AppColors.powderBlue.withOpacity(0.5),
           ),
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.example.resqnet',
-              // TODO (Phase 2): Plug in offline tile provider for local caching.
-              // Example: Use `flutter_map_cache` or custom FsTileProvider.
+              errorTileCallback: (tile, error, stackTrace) {
+                // Silently handle tile load errors to prevent crashes and console spam
+                // Especially useful for offline-first mode before tiles are cached
+              },
             ),
             MarkerLayer(
               markers: [
